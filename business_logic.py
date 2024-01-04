@@ -1,4 +1,4 @@
-from utils import convert, get_conversion_rates, get_sugar_conversions
+from utils import convert, CONVERSION_RATES, SUGAR_CONVERSIONS
 
 
 def bl_convert(data):
@@ -10,7 +10,7 @@ def bl_convert(data):
         len(data.keys()) == 3,
         type(serving_amount) == float or type(serving_amount) == int,
         type(serving_unit) == str,
-        serving_unit in get_conversion_rates(),
+        serving_unit in CONVERSION_RATES,
         type(final_unit) == str
     ]):
         return 'Validation error', 400
@@ -31,8 +31,8 @@ def bl_calculate(data):
         len(data.keys()) == 3,
         type(serving_amount) == float or type(serving_amount) == int,
         type(serving_unit) == str,
-        serving_unit in get_conversion_rates(),
-        food_name in get_sugar_conversions()
+        serving_unit in CONVERSION_RATES,
+        food_name in SUGAR_CONVERSIONS
     ]):
         return 'Validation error', 400
 
@@ -41,7 +41,7 @@ def bl_calculate(data):
     except ValueError:
         return "Conversion can't be made", 400
 
-    sugar_grams_per_cup = float(get_sugar_conversions()[food_name]['1 cup'].split(' ')[0])
+    sugar_grams_per_cup = float(SUGAR_CONVERSIONS[food_name]['1 cup'].split(' ')[0])
     total_sugar_grams = sugar_grams_per_cup * cup_amounts
 
     return {'sugar grams': total_sugar_grams}, 200

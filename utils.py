@@ -7,14 +7,6 @@ CONVERSION_RATES = {}
 SUGAR_CONVERSIONS = {}
 
 
-def get_conversion_rates():
-    return CONVERSION_RATES
-
-
-def get_sugar_conversions():
-    return SUGAR_CONVERSIONS
-
-
 def set_conversion_rates(file_path=JSON_CONVERSION_PATH, conversion_rates=None):
     global CONVERSION_RATES
     if conversion_rates:
@@ -40,6 +32,9 @@ def validate_ratios(conversion_rates):
 
 
 def get_inferred_conversion_rate(base_unit, converted_unit, visited, conversion_rates):
+    if base_unit == converted_unit:
+        return 1
+
     if base_unit in visited:
         return
     visited.add(base_unit)
@@ -53,29 +48,31 @@ def get_inferred_conversion_rate(base_unit, converted_unit, visited, conversion_
             return x * conversion_rates[base_unit][known_unit]
 
 
+def get_amount_unit_list_from_string(in_str):
+    str_list = in_str.split(",")
+    amount_unit_list = [x.strip().split() for x in str_list]
+    return amount_unit_list
+
+
 def load_conversion_rates(json_body):
     all_units = set()
-    for unit, amount_converted_unites in json_body.items():
+    for unit, amount_converted_units in json_body.items():
         all_units.add(unit)
-        equal_measurements = amount_converted_unites.split(', ')
-        equal_measurements = [x.split(' ')[1] for x in equal_measurements]
+        amount_unit_list = get_amount_unit_list_from_string(amount_converted_units)
+        equal_measurements = [unit for measurement, unit in amount_unit_list]
         all_units.update(equal_measurements)
 
     raw_rates = dict()
-    for j, unit in enumerate(all_units):
-        raw_rates[unit] = {k: {} for k in (list(all_units)[:j] + list(all_units)[j+1:])}
+    for unit in all_units:
+        raw_rates[unit] = {k: {} for k in all_units}
 
     for unit, amount_converted_units in json_body.items():
-        equal_measurements = amount_converted_units.split(', ')
-        equal_measurements = [x.split(' ') for x in equal_measurements]
-        equal_measurements.append([1, unit])
-        for j, measurement in enumerate(equal_measurements):
-            for next_measurement in equal_measurements[j+1:]:
-                amount_a, converted_unit_a = measurement
-                amount_b, converted_unit_b = next_measurement
+        equal_measurements = get_amount_unit_list_from_string(amount_converted_units)
+        for measurement in equal_measurements:
+            amount_a, converted_unit_a = measurement
 
-                raw_rates[converted_unit_a][converted_unit_b] = float(amount_b) / float(amount_a)
-                raw_rates[converted_unit_b][converted_unit_a] = float(amount_a) / float(amount_b)
+            raw_rates[unit][converted_unit_a] = float(amount_a)
+            raw_rates[converted_unit_a][unit] = float(1) / float(amount_a)
 
     # inferring indirect rates
     for unit, conversion_rates in raw_rates.items():
@@ -90,6 +87,7 @@ def load_conversion_rates(json_body):
 
     # checking for rate conflicts
     validate_ratios(clean_rates)
+
     return clean_rates
 
 
