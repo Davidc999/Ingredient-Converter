@@ -32,19 +32,20 @@ def validate_ratios(conversion_rates):
 
 
 def get_inferred_conversion_rate(base_unit, converted_unit, visited, conversion_rates):
+    if base_unit in visited:
+        return
+
+    visited.add(base_unit)
+
+    if converted_unit in conversion_rates[base_unit]:
+        return conversion_rates[base_unit][converted_unit]
+
     if base_unit == converted_unit:
         return 1
 
-    if base_unit in visited:
-        return
-    visited.add(base_unit)
-
-    if converted_unit in conversion_rates[base_unit] and conversion_rates[base_unit][converted_unit] != {}:
-        return conversion_rates[base_unit][converted_unit]
-
-    for known_unit in [x for x in conversion_rates[base_unit] if conversion_rates[base_unit][x] != {}]:
+    for known_unit in [x for x in conversion_rates[base_unit]]:
         x = get_inferred_conversion_rate(known_unit, converted_unit, visited=visited, conversion_rates=conversion_rates)
-        if x and conversion_rates[base_unit][known_unit]:
+        if x:
             return x * conversion_rates[base_unit][known_unit]
 
 
@@ -64,7 +65,7 @@ def load_conversion_rates(json_body):
 
     raw_rates = dict()
     for unit in all_units:
-        raw_rates[unit] = {k: {} for k in all_units}
+        raw_rates[unit] = {}
 
     for unit, amount_converted_units in json_body.items():
         equal_measurements = get_amount_unit_list_from_string(amount_converted_units)
@@ -75,20 +76,18 @@ def load_conversion_rates(json_body):
             raw_rates[converted_unit_a][unit] = float(1) / float(amount_a)
 
     # inferring indirect rates
-    for unit, conversion_rates in raw_rates.items():
-        for converted_unit, amount in conversion_rates.items():
-            if amount != {}:
-                continue
-            raw_rates[unit][converted_unit] = get_inferred_conversion_rate(base_unit=unit, converted_unit=converted_unit, visited=set(), conversion_rates=raw_rates)
-
-    clean_rates = dict()
-    for k, v in raw_rates.items():
-        clean_rates[k] = {x: y for x, y in v.items() if y is not None}
+    for base_unit in all_units:
+        for converted_unit in all_units:
+            conversion_rate = get_inferred_conversion_rate(base_unit=base_unit, visited=set(),
+                                         converted_unit=converted_unit,
+                                         conversion_rates=raw_rates)
+            if conversion_rate:
+                raw_rates[base_unit][converted_unit] = conversion_rate
 
     # checking for rate conflicts
-    validate_ratios(clean_rates)
+    validate_ratios(raw_rates)
 
-    return clean_rates
+    return raw_rates
 
 
 def load_sugar_conversions(path=JSON_SUGAR_CALC):
